@@ -1,8 +1,7 @@
 package pt.apdc.individual63431.resources;
 
-import java.util.logging.Level;
 import java.util.logging.Logger;
-
+import java.util.logging.Level;
 import org.apache.commons.codec.digest.DigestUtils;
 
 import jakarta.ws.rs.Consumes;
@@ -31,7 +30,6 @@ public class LoginResource {
     private final Gson g = new Gson();
 
     public LoginResource() {
-
     }
 
     @POST
@@ -63,7 +61,7 @@ public class LoginResource {
         	
         } catch(Exception e) {
         	txn.rollback();
-            logger.log(Level.SEVERE, "Erro durante o login", e);
+            LOG.log(Level.SEVERE, "Erro durante o login", e);
         	return Response.status(Status.INTERNAL_SERVER_ERROR).build();
         } finally {
         	if (txn.isActive()) txn.rollback();
