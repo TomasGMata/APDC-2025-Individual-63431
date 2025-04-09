@@ -1,4 +1,4 @@
-package pt.unl.fct.di.apdc.firstwebapp.util;
+package pt.apdc.individual63431.util;
 
 import java.util.UUID;
 

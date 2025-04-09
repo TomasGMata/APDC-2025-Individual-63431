@@ -1,4 +1,4 @@
-package pt.unl.fct.di.apdc.firstwebapp.resources;
+package pt.apdc.individual63431.resources;
 
 import java.util.logging.Logger;
 
@@ -12,8 +12,10 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 
-import pt.unl.fct.di.apdc.firstwebapp.util.AuthToken;
-import pt.unl.fct.di.apdc.firstwebapp.util.LoginData;
+import pt.apdc.individual63431.util.AuthToken;
+import pt.apdc.individual63431.util.LoginData;
+import pt.apdc.individual63431.util.UserData;
+import pt.apdc.individual63431.util.UserEntity;
 import com.google.gson.Gson;
 import com.google.cloud.datastore.*;
 
@@ -33,16 +35,19 @@ public class RegisterResource {
     @Path("/")
     @Consumes(MediaType.APPLICATION_JSON)
     public Response registerUser(UserData data) {
-        if(!data.isValid())
+        if(!data.isDataValid())
             return Response.status(Status.FORBIDDEN).entity("Missing required fields.").build();
 
-        Key userKey = datastore.newKeyFactory().setKind(UserEntity.KIND).newKey(data.username);
+        Key userKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(data.username);
 
         if (datastore.get(userKey) != null)
             return Response.status(Status.FORBIDDEN).entity("User arleady exists.").build();
-
+        
+        data.role="enduser";
+        data.state="DESATIVADA";
         Entity newUser = UserEntity.toEntity(data, datastore);
         datastore.put(newUser);
+        
 
         return Response.ok().entity("User regisred").build();
     }

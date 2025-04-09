@@ -12,8 +12,9 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 
-import pt.unl.fct.di.apdc.firstwebapp.util.AuthToken;
-import pt.unl.fct.di.apdc.firstwebapp.util.UserData;
+import pt.apdc.individual63431.util.AuthToken;
+import pt.apdc.individual63431.util.UserData;
+import pt.apdc.individual63431.util.LoginData;
 import com.google.gson.Gson;
 
 @Path("/login")

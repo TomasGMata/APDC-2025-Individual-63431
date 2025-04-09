@@ -6,16 +6,17 @@ public class UserEntity {
 
     public static final String Kind = "User";
 
-    public static Entity toEntity(UserRequest req, Datastore datastore) {
-        Key userKey = datastore.newKeyFactory().setKind(KIND).newKey(req.username);
+    public static Entity toEntity(UserData data, Datastore datastore) {
+        Key userKey = datastore.newKeyFactory().setKind(Kind).newKey(data.username);
 
         Entity.Builder user = Entity.newBuilder(userKey)
-                .set("email", req.email)
-                .set("username", req.username)
-                .set("fullName", req.fullName)
-                .set("phoneNum", req.phoneNum)
-                .set("password", req.password) // Encriptação recomendada
-                .set("privacy", req.privacy);
+                .set("email", data.email)
+                .set("username", data.username)
+                .set("fullName", data.fullName)
+                .set("phoneNum", data.phoneNumber)
+                .set("privacy", data.privacy)
+                .set("role", data.role)
+                .set("state", data.state);
         return user.build();
     }
 }

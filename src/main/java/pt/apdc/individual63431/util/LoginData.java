@@ -4,22 +4,15 @@ public class LoginData {
 
     public String username;
     public String password;
-    public String privacy;
-
-    public String ccNumber;
-    public String role;
-    public String NIF;
-    public String company;
-    public String jobTitle;
-    public String address;
-    public String companyNIF;
-    public String state;
+    public String email;
 
     public LoginData() {
     }
 
-    public LoginData(String username, String email, String fullName, String phoneNumber, String password, String privacy) {
-
+    public LoginData(String username, String email, String password) {
+    	this.email = email;
+    	this.username = username;
+    	this.password = password;
     }
 
 }

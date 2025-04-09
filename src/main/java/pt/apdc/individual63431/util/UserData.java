@@ -5,7 +5,7 @@ public class UserData {
     public String username;
     public String email;
     public String fullName;
-    public Sring phoneNumber;
+    public String phoneNumber;
     public String privacy;
 
     public String ccNumber;
@@ -20,8 +20,8 @@ public class UserData {
     public UserData() {
     }
 
-    public UserData() {
-
+    public UserData(String username) {
+    	this.username = username;
     }
 
     public boolean isDataValid() {
