@@ -13,6 +13,7 @@ public class UserEntity {
                 .set("email", data.email)
                 .set("username", data.username)
                 .set("fullName", data.fullName)
+                .set("password", data.password)
                 .set("phoneNum", data.phoneNumber)
                 .set("privacy", data.privacy)
                 .set("role", data.role)

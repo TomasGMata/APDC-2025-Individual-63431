@@ -5,6 +5,7 @@ public class UserData {
     public String username;
     public String email;
     public String fullName;
+    public String password;
     public String phoneNumber;
     public String privacy;
 
@@ -20,8 +21,9 @@ public class UserData {
     public UserData() {
     }
 
-    public UserData(String username) {
+    public UserData(String username, String password) {
     	this.username = username;
+    	this.password = password;
     }
 
     public boolean isDataValid() {
