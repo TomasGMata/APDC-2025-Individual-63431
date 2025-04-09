@@ -4,7 +4,6 @@ public class LoginData {
 
     public String identifier;
     public String password;
-    public String email;
 
     public LoginData() {
     }

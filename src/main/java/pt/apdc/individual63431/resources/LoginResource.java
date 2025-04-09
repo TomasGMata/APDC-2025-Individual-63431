@@ -62,6 +62,7 @@ public class LoginResource {
         	
         } catch(Exception e) {
         	txn.rollback();
+            LOG.severe(e);
         	return Response.status(Status.INTERNAL_SERVER_ERROR).build();
         } finally {
         	if (txn.isActive()) txn.rollback();
