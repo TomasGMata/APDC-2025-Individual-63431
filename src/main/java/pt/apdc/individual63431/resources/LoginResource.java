@@ -1,5 +1,6 @@
 package pt.apdc.individual63431.resources;
 
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.commons.codec.digest.DigestUtils;
@@ -62,7 +63,7 @@ public class LoginResource {
         	
         } catch(Exception e) {
         	txn.rollback();
-            LOG.severe(e);
+            logger.log(Level.SEVERE, "Erro durante o login", e);
         	return Response.status(Status.INTERNAL_SERVER_ERROR).build();
         } finally {
         	if (txn.isActive()) txn.rollback();
