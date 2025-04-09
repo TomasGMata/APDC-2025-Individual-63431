@@ -1,9 +1,11 @@
 package pt.apdc.individual63431.util;
 
-public class LoginData {
+public class UserData {
 
     public String username;
-    public String password;
+    public String email;
+    public String fullName;
+    public Sring phoneNumber;
     public String privacy;
 
     public String ccNumber;
@@ -15,11 +17,14 @@ public class LoginData {
     public String companyNIF;
     public String state;
 
-    public LoginData() {
+    public UserData() {
     }
 
-    public LoginData(String username, String email, String fullName, String phoneNumber, String password, String privacy) {
+    public UserData() {
 
     }
 
+    public boolean isDataValid() {
+        return username != null && email != null && fullName != null && phoneNumber != null && privacy != null;
+    }
 }
