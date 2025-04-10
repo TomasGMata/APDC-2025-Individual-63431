@@ -6,10 +6,11 @@ public class AuthToken {
 
     private static final long EXPIRATION_TIME = 1000*60*60*2;
 
-    private String user;
+    private String username;
     private String role;
-    private String validFrom;
-    private String validTo;
+    private long validFrom;
+    private long validTo;
+    private String tokenID;
 
     public AuthToken() {
 
@@ -28,11 +29,11 @@ public class AuthToken {
         return tokenID;
     }
 
-    public String getValidFrom() {
+    public long getValidFrom() {
         return validFrom;
     }
 
-    public String getValidTo() {
+    public long getValidTo() {
         return validTo;
     }
 
