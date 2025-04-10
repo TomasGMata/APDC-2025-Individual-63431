@@ -13,11 +13,15 @@
 	import pt.apdc.individual63431.util.AuthToken;
 	import pt.apdc.individual63431.util.RemoveAccountRequest;
 	import pt.apdc.individual63431.util.RequestManagementChange;
+	import pt.apdc.individual63431.util.UserData;
 	import pt.apdc.individual63431.util.UserEntity;
 	
 	import com.google.cloud.datastore.*;
 	import com.google.gson.Gson;
+
 	import java.util.logging.Logger;
+	import java.util.ArrayList;
+	import java.util.List;
 	import java.util.logging.Level;
 	import org.apache.commons.codec.digest.DigestUtils;
 	
@@ -159,6 +163,48 @@
 		        }
 	    	} catch (Exception e) {
 	    		LOG.log(Level.SEVERE, "Error removing user account", e);
+	    		return Response.status(Status.BAD_REQUEST).build();
+	    	}
+	    }
+	    
+	    @POST
+	    @Path("/listUsers")
+	    @Consumes(MediaType.APPLICATION_JSON)
+	    @Produces(MediaType.APPLICATION_JSON)
+	    public Response listUsers(AuthToken token) {
+	        try {
+	        	AuthToken at = isTokenValid(token);
+	        	if(at == null) {
+	        		return Response.status(Status.FORBIDDEN).entity("User isn't logged").build();
+	        	}
+	        	
+	        	boolean isBackoffice = "backoffice".equalsIgnoreCase(at.getRole());
+	        	boolean isAdmin = "admin".equalsIgnoreCase(at.getRole());
+	        	boolean isEnduser = "enduser".equalsIgnoreCase(at.getRole());
+
+	            Query<Entity> query = Query.newEntityQueryBuilder()
+	                .setKind("User")
+	                .build();
+
+	            QueryResults<Entity> results = datastore.run(query);
+	            List<UserData> userList = new ArrayList<>();
+	            
+	            while (results.hasNext()) {
+	            	Entity user = results.next();
+	            	String role = user.getString("role");
+	            	String state = user.getString("state");
+	            	String privacy = user.getString("privacy");
+	            	
+	            	if(isAdmin || isBackoffice && role.equalsIgnoreCase("enduser")) {
+	            		
+	            	}
+	            	
+	            }
+	            
+	            return Response.ok().entity(userList).build();
+	        	
+	        } catch (Exception e) {
+	    		LOG.log(Level.SEVERE, "Error listing user accounts", e);
 	    		return Response.status(Status.BAD_REQUEST).build();
 	    	}
 	    }
