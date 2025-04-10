@@ -20,4 +20,5 @@ public class UserEntity {
                 .set("state", data.state);
         return user.build();
     }
+    
 }
