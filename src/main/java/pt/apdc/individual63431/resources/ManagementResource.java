@@ -11,14 +11,15 @@
 	import jakarta.ws.rs.core.Response.Status;
 	
 	import pt.apdc.individual63431.util.AuthToken;
+	import pt.apdc.individual63431.util.RemoveAccountRequest;
 	import pt.apdc.individual63431.util.RequestManagementChange;
-import pt.apdc.individual63431.util.UserEntity;
-
-import com.google.cloud.datastore.*;
-import com.google.gson.Gson;
-import java.util.logging.Logger;
-import java.util.logging.Level;
-import org.apache.commons.codec.digest.DigestUtils;
+	import pt.apdc.individual63431.util.UserEntity;
+	
+	import com.google.cloud.datastore.*;
+	import com.google.gson.Gson;
+	import java.util.logging.Logger;
+	import java.util.logging.Level;
+	import org.apache.commons.codec.digest.DigestUtils;
 	
 	@Path("/{username}")
 	@Produces(MediaType.APPLICATION_JSON + ";charset=utf-8")
@@ -47,13 +48,20 @@ import org.apache.commons.codec.digest.DigestUtils;
 
 		        Key targetKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(rq.getTargetUsername());
 		        Transaction txn = datastore.newTransaction();
-		        Entity targetUsr = txn.get(targetKey);
-		        
-		        if(targetUsr==null) {
-		        	return Response.status(Status.NOT_FOUND).entity("Target user doesn't exist").build();
-		        }
 		        
 		        try {
+		        	Entity targetUsr = txn.get(targetKey);
+			        
+			        if(targetUsr==null) {
+			        	return Response.status(Status.BAD_REQUEST).entity("Target user doesn't exist").build();
+			        }
+		        	
+		        	boolean isEnduserTargetValid = (targetUsr.getString("role").equals("partner") && rq.getUserChange().equals("enduser"));
+		        	boolean isPartnerTargetValid = (targetUsr.getString("role").equals("enduser") && rq.getUserChange().equals("partner"));
+		        	if(token.getRole().equals("backoffice") && (!isEnduserTargetValid && !isPartnerTargetValid)) {
+		        		return Response.status(Status.FORBIDDEN).entity("User isn't authorized to change this user role").build();
+		        	}
+		        	
 		        	Entity updatedUser = Entity.newBuilder(targetUsr)
 		            		.set("role", rq.getUserChange()).build();
 		        	txn.update(updatedUser);
@@ -61,9 +69,8 @@ import org.apache.commons.codec.digest.DigestUtils;
 		        	
 		        	LOG.info("Role changed with success");
 	        		return Response.ok().entity("User role updated successfully").build();
-		        } finally {
-		        	if (txn.isActive())
-		        		txn.rollback();
+		        }finally {
+		        	if (txn.isActive()) txn.rollback();
 		        }
 	    	} catch (Exception e) {
 	    		LOG.log(Level.SEVERE, "Error changing user role", e);
@@ -86,13 +93,20 @@ import org.apache.commons.codec.digest.DigestUtils;
 
 		        Key targetKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(rq.getTargetUsername());
 		        Transaction txn = datastore.newTransaction();
-		        Entity targetUsr = txn.get(targetKey);
-		        
-		        if(targetUsr==null) {
-		        	return Response.status(Status.NOT_FOUND).entity("Target user doesn't exist").build();
-		        }
 		        
 		        try {
+		        	Entity targetUsr = txn.get(targetKey);
+			        
+			        if(targetUsr==null) {
+			        	return Response.status(Status.NOT_FOUND).entity("Target user doesn't exist").build();
+			        }
+			        
+		        	boolean isActivateValid = targetUsr.getString("state").equals("DESATIVADA") && rq.getUserChange().equals("ATIVADA");
+		        	boolean isDesactivateValid = targetUsr.getString("state").equals("ATIVADA") && rq.getUserChange().equals("DESATIVADA");
+		        	if(targetUsr.getString("role").equals("backoffice") && !isActivateValid && !isDesactivateValid) {
+		        		return Response.status(Status.FORBIDDEN).entity("User isn't authorized to change this user role").build();
+		        	}
+		        	
 		        	Entity updatedUser = Entity.newBuilder(targetUsr)
 		            		.set("state", rq.getUserChange()).build();
 		        	txn.update(updatedUser);
@@ -107,6 +121,45 @@ import org.apache.commons.codec.digest.DigestUtils;
 	    	} catch (Exception e) {
 	    		LOG.log(Level.SEVERE, "Error changing user state", e);
 	            return Response.status(Status.BAD_REQUEST).build();
+	    	}
+	    }
+
+	    @POST
+	    @Path("/removeAccount")
+	    @Consumes(MediaType.APPLICATION_JSON)
+	    public Response removeUserAccount(RemoveAccountRequest request) {
+	    	try {
+	    		AuthToken token = isTokenValid(request.getToken());
+		        if(token==null) {
+		        	return Response.status(Status.FORBIDDEN).entity("User isn't logged").build();
+		    	}
+		        
+		        Key targetKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(request.getUsername());
+		        Transaction txn = datastore.newTransaction();
+		        
+		        try {
+		        	Entity targetUser = txn.get(targetKey);
+		        	
+		        	if(targetUser == null) {
+		        		return Response.status(Status.NOT_FOUND).entity("Target user doesn't exist").build();
+		        	}
+		        	
+		        	if(!request.hasPermissionToRemove(targetUser)) {
+		        		return Response.status(Status.FORBIDDEN).entity("User isn't authorized to remove this user's account").build();
+		        	}
+		        	
+		        	txn.delete(targetKey);
+		        	txn.commit();
+		        	
+		        	LOG.info("Removed with success");
+		        	return Response.ok().entity("Account removed successfully").build();
+		        } finally {
+		        	if (txn.isActive())
+		        		txn.rollback();
+		        }
+	    	} catch (Exception e) {
+	    		LOG.log(Level.SEVERE, "Error removing user account", e);
+	    		return Response.status(Status.BAD_REQUEST).build();
 	    	}
 	    }
 	    

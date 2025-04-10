@@ -87,7 +87,7 @@ public class RegisterResource {
             rootUser.phoneNumber = "000000000";
             rootUser.password = "admin123";
             rootUser.privacy = "private";
-            rootUser.role = "ADMIN";
+            rootUser.role = "admin";
             rootUser.state = "ATIVADA";
             
             Entity root = Entity.newBuilder(rootKey)
