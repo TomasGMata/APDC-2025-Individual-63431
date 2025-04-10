@@ -48,10 +48,10 @@ public class LoginResource {
         		return Response.status(Status.FORBIDDEN).entity("User doesn't exist, please get registered").build();
         	}
         	
-        	String hashedPwd = (String) user.getString("password");
+        	String hashedPwd = user.getString("password");
         	
         	if(hashedPwd.equals(DigestUtils.sha3_512Hex(data.password))) {
-        		AuthToken token = new AuthToken(data.identifier);
+        		AuthToken token = new AuthToken(user.getString("username"), user.getString("role"));
         		LOG.info("User login was successfull");
         		return Response.ok(g.toJson(token)).build();
         	}
@@ -67,4 +67,5 @@ public class LoginResource {
         	if (txn.isActive()) txn.rollback();
         }
     }
+
 }

@@ -4,22 +4,36 @@ import java.util.UUID;
 
 public class AuthToken {
 
-    public static final long EXPIRATION_TIME = 1000*60*60*2;
+    private static final long EXPIRATION_TIME = 1000*60*60*2;
 
-    public String username;
-    public String tokenID;
-    public long creationData;
-    public long expirationData;
+    private String user;
+    private String role;
+    private String validFrom;
+    private String validTo;
 
     public AuthToken() {
 
     }
 
-    public AuthToken(String username) {
+    public AuthToken(String username, String role) {
         this.username = username;
+        this.role = role;
         this.tokenID = UUID.randomUUID().toString();
-        this.creationData = System.currentTimeMillis();
-        this.expirationData = this.creationData - EXPIRATION_TIME;
+        this.validFrom = System.currentTimeMillis();
+        this.validTo = this.validFrom + EXPIRATION_TIME;
+
+    }
+
+    public String getTokenID() {
+        return tokenID;
+    }
+
+    public String getValidFrom() {
+        return validFrom;
+    }
+
+    public String getValidTo() {
+        return validTo;
     }
 
 }
