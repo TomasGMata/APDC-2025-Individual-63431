@@ -36,4 +36,6 @@ public class AuthToken {
         return validTo;
     }
 
+    public String getRole() { return role; }
+
 }

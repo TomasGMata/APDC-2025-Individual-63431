@@ -16,7 +16,7 @@ public class UserEntity {
                 .set("password", data.password)
                 .set("phoneNum", data.phoneNumber)
                 .set("privacy", data.privacy)
-                .set("role", data.role)
+                .set("role", data.role)     //ENDUSER, BACKOFFICE, ADMIN, PARTNER
                 .set("state", data.state);
         return user.build();
     }
