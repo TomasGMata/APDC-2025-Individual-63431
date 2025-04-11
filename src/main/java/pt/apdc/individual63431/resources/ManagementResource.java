@@ -211,10 +211,10 @@
 	    
 	    
 	    @POST
-	    @Path("/listUsers")
+	    @Path("/updateAccount")
 	    @Consumes(MediaType.APPLICATION_JSON)
 	    @Produces(MediaType.APPLICATION_JSON)
-	    public Response updateUserData(UserData newData, AuthToken t) {
+	    public Response updateUserData(UserData newData, AuthToken t, @PathParam("username") String targetUsername) {
 	        try {
 	        	AuthToken at = isTokenValid(t);
 	        	if(at == null) {
@@ -223,13 +223,72 @@
 	        	
 	        	Key targetKey = datastore.newKeyFactory()
                         .setKind(UserEntity.Kind)
-                        .newKey(t.getUsername());
+                        .newKey(targetUsername);
 	        	Transaction txn = datastore.newTransaction();
 	        	
-	        	// more things to come
-	        	
-	        	return Response.ok().build();
-	        	
+	        	try {
+	        		Entity targetUser = txn.get(targetKey);
+	        		if(targetUser == null) {
+		        		return Response.status(Status.NOT_FOUND).entity("Target user doesn't exist").build();
+		        	}
+	        		
+	        		if(!hasUpdatePermission(at, targetUser, newData)) {
+	        			return Response.status(Status.FORBIDDEN)
+	                            .entity("User isn´t allowed to change this attributes.").build();
+	        		}
+	        		
+	        		Entity.Builder udpated = Entity.newBuilder(targetUser);
+	        		
+	        		if (newData.getPhoneNumber() != null) {
+	        			udpated.set("phoneNumber", newData.getPhoneNumber());
+	        		}
+
+	        		if (newData.getPrivacy() != null) {
+	        			udpated.set("privacy", newData.getPrivacy());
+	        		}
+
+	        		if (newData.getCcNumber() != null) {
+	        			udpated.set("ccNumber", newData.getCcNumber());
+	        		}
+
+	        		if (newData.getNIF() != null) {
+	        			udpated.set("NIF", newData.getNIF());
+	        		}
+
+	        		if (newData.getCompany() != null) {
+	        			udpated.set("company", newData.getCompany());
+	        		}
+
+	        		if (newData.getJobTitle() != null) {
+	        			udpated.set("jobTitle", newData.getJobTitle());
+	        		}
+
+	        		if (newData.getAddress() != null) {
+	        			udpated.set("address", newData.getAddress());
+	        		}
+
+	        		if (newData.getCompanyNIF() != null) {
+	        			udpated.set("companyNIF", newData.getCompanyNIF());
+	        		}
+
+	        		if ("admin".equalsIgnoreCase(at.getRole())) {
+	        		    if (newData.getRole() != null) {
+	        		    	udpated.set("role", newData.getRole());
+	        		    }
+	        		    if (newData.getState() != null) {
+	        		    	udpated.set("state", newData.getState());
+	        		    }
+	        		}
+	        		Entity updatedUser = udpated.build();
+	        		txn.update(updatedUser);
+	        		txn.commit();
+	        		
+	        		LOG.info("Attributes changed with succes");
+	        		return Response.ok().entity("User attributes updated successfully").build();
+	        	} finally {
+	        		if (txn.isActive())
+		        		txn.rollback();
+	        	}
 	        } catch (Exception e) {
 	    		LOG.log(Level.SEVERE, "Error listing user accounts", e);
 	    		return Response.status(Status.BAD_REQUEST).build();
@@ -238,6 +297,41 @@
 	    
 	    private AuthToken isTokenValid(AuthToken token) {
 	    	return null;
+	    }
+	    
+	    
+	    private boolean hasUpdatePermission(AuthToken token, Entity targetUser, UserData newData) {
+	    	String requesterRole = token.getRole();
+	    	String targetRole = targetUser.getString("role");
+	    	boolean updateMySelf = token.getUsername().equals(targetUser.getString("username"));
+	    	
+	    	if(requesterRole.equals("admin")) {
+	    		return true;
+	    	}
+	    	
+	    	if(requesterRole.equals("enduser") && updateMySelf) {
+	    		
+	    		if(newData.getUsername()!=null || newData.getEmail()!=null || newData.getFullName()!=null || 
+	    				newData.getRole()!=null || newData.getPassword()!=null)
+	    			return false;
+	    		if(targetUser.getString("state").equals("DESATIVADA")) {
+	    			return newData.getState().equals("ATIVADA");
+	    		} return true;
+	    	
+	    	}
+	    	
+	    	if(requesterRole.equals("backoffice")) {
+	    		
+	    		if(!(targetRole.equals("enduser")) || !(targetRole.equals("partner"))) {
+	    			return false;
+	    		}
+	    		if(newData.getUsername()!=null || newData.getEmail()!=null) {
+	    			return false;
+	    		}
+	    		return true;
+	    	}
+	    	
+	    	return false;
 	    }
 	    
 	}
