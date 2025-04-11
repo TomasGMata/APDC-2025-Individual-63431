@@ -34,7 +34,8 @@ public class LoginResource {
 
     @POST
     @Path("/")
-    @Consumes(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)    
+    @Produces(MediaType.APPLICATION_JSON)
     public Response doLogin(LoginData data) {
         LOG.fine("Login attempt by user: " + data.identifier);
         
@@ -48,12 +49,18 @@ public class LoginResource {
         		return Response.status(Status.FORBIDDEN).entity("User doesn't exist, please get registered").build();
         	}
         	
-        	String hashedPwd = user.getString("password");
+        	String hashedPass = user.getString("password");
         	
-        	if(hashedPwd.equals(DigestUtils.sha3_512Hex(data.password))) {
-        		AuthToken token = new AuthToken(user.getString("username"), user.getString("role"));
+        	if(hashedPass.equals(DigestUtils.sha3_512Hex(data.password))) {
+        		AuthToken at = new AuthToken(data.identifier, user.getString("role"));
         		LOG.info("User login was successfull");
-        		return Response.ok(g.toJson(token)).build();
+        		
+        		Key tokenK = datastore.newKeyFactory().setKind("AuthToken").newKey(at.getTokenID());
+        		Entity token = Entity.newBuilder(tokenK).set("username", data.identifier)
+        				.set("expirationTime", at.getValidTo()).build();
+        		datastore.put(token);
+        		
+        		return Response.ok(g.toJson(at)).build();
         	}
         	else {
         		return Response.status(Status.FORBIDDEN).entity("Incorrect username or password.").build();

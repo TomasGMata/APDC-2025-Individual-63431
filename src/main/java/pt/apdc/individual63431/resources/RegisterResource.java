@@ -27,8 +27,7 @@ public class RegisterResource {
 
     private static final Datastore datastore = DatastoreOptions.getDefaultInstance().getService();
     private static final Logger LOG = Logger.getLogger(LoginResource.class.getName());
-    private final Gson g = new Gson();
-
+    
     public RegisterResource() {
     	initRootUser();
     }
@@ -37,35 +36,49 @@ public class RegisterResource {
     @Path("/")
     @Consumes(MediaType.APPLICATION_JSON)
     public Response registerUser(UserData data) {
-    	Transaction txn = datastore.newTransaction();
-    	
-    	LOG.fine("Attempt to register User: " + data.username);
-        if(!data.isDataValid()) {
-            return Response.status(Status.FORBIDDEN).entity("Missing required fields.").build();
-        }
+    	try {
+    		Transaction txn = datastore.newTransaction();
+        	
+        	LOG.fine("Attempt to register User: " + data.username);
+            if(!data.isDataValid()) {
+                return Response.status(Status.FORBIDDEN).entity("Missing required fields.").build();
+            }
+            if (!data.isEmailValid()) {
+            	LOG.warning("Invalid email: " + data.getEmail());
+            	return Response.status(Status.BAD_REQUEST).entity("Your email is considered invalid").build();
+            }
+            if (!data.isPasswordValid()) {
+            	LOG.warning("Invalid password: " + data.getPassword());
+            	return Response.status(Status.BAD_REQUEST).entity("Your password is considered invalid").build();
+            }
+            
+            Key userKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(data.username);
+            Entity user = datastore.get(userKey);
 
-        Key userKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(data.username);
+            if (user != null) {
+            	txn.rollback();
+                return Response.status(Status.FORBIDDEN).entity("User arleady exists.").build();
+            }
+            
+            data.role="enduser";
+            data.state="DESATIVADA";
+            Entity newUser = Entity.newBuilder(userKey)
+            		.set("password", DigestUtils.sha256Hex(data.password))
+            		.set("username", data.username)
+            		.set("email", data.email)
+            		.set("fullName", data.fullName)
+            		.set("phoneNumber", data.phoneNumber)
+            		.set("privacy", data.privacy)
+            		.set("role", data.role)
+            		.set("state", data.state).build();
+            txn.put(newUser);
+            txn.commit();
 
-        if (datastore.get(userKey) != null) {
-        	txn.rollback();
-            return Response.status(Status.FORBIDDEN).entity("User arleady exists.").build();
-        }
-        
-        data.role="enduser";
-        data.state="DESATIVADA";
-        Entity newUser = Entity.newBuilder(userKey)
-        		.set("password", DigestUtils.sha256Hex(data.password))
-        		.set("username", data.username)
-        		.set("email", data.email)
-        		.set("fullName", data.fullName)
-        		.set("phoneNumber", data.phoneNumber)
-        		.set("privacy", data.privacy)
-        		.set("role", data.role)
-        		.set("state", data.state).build();
-        txn.put(newUser);
-        txn.commit();
-
-        return Response.ok().entity("User regisred").build();
+            return Response.ok().entity("User regisred").build();
+    	} catch (DatastoreException e) {
+    		LOG.severe("Não conseguiu aceder a datastore");
+    		return Response.status(Status.CONFLICT).entity("Error accessing datastore").build();
+    	}
     }
     
     private void initRootUser() {

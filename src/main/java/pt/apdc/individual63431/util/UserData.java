@@ -1,5 +1,9 @@
 package pt.apdc.individual63431.util;
 
+import com.google.cloud.datastore.Entity;
+import com.google.cloud.datastore.Key;
+ 
+
 public class UserData {
 
     public String username;
@@ -21,9 +25,14 @@ public class UserData {
     public UserData() {
     }
 
-    public UserData(String username, String password) {
-        this.username = username;
-        this.password = password;
+    public UserData(Entity entity) {
+        this.email = entity.getString("email");
+        this.username = entity.getString("username");
+        this.fullName = entity.getString("fullName");
+        this.phoneNumber = entity.getString("phoneNumber");
+        this.privacy = entity.getString("privacy");
+        this.state = entity.getString("state");
+        this.role = entity.getString("role");
     }
 
     public UserData(String username, String email, String fullName, String password,
@@ -49,6 +58,14 @@ public class UserData {
     public boolean isDataValid() {
         return username != null && email != null && fullName != null
                 && phoneNumber != null && privacy != null;
+    }
+    
+    public boolean isEmailValid() {
+    	return email.contains("@");
+    }
+    
+    public boolean isPasswordValid() {
+    	return password.length() > 6;
     }
 
     public String getUsername() {
