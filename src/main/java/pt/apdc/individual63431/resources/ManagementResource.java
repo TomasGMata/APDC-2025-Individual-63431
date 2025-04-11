@@ -11,7 +11,8 @@
 	import jakarta.ws.rs.core.Response.Status;
 	
 	import pt.apdc.individual63431.util.AuthToken;
-	import pt.apdc.individual63431.util.RemoveAccountRequest;
+import pt.apdc.individual63431.util.ChangePasswordRequest;
+import pt.apdc.individual63431.util.RemoveAccountRequest;
 	import pt.apdc.individual63431.util.RequestManagementChange;
 	import pt.apdc.individual63431.util.UserData;
 	import pt.apdc.individual63431.util.UserEntity;
@@ -290,7 +291,57 @@
 		        		txn.rollback();
 	        	}
 	        } catch (Exception e) {
-	    		LOG.log(Level.SEVERE, "Error listing user accounts", e);
+	    		LOG.log(Level.SEVERE, "Error updating user accounts", e);
+	    		return Response.status(Status.BAD_REQUEST).build();
+	    	}
+	    }
+	    
+	    @POST
+	    @Path("/changePassword")
+	    @Consumes(MediaType.APPLICATION_JSON)
+	    public Response changePassword(AuthToken token, ChangePasswordRequest rq) {
+	    	try {
+	        	AuthToken at = isTokenValid(token);
+	        	if(at == null) {
+	        		return Response.status(Status.FORBIDDEN).entity("User isn't logged").build();
+	        	}
+	        	
+	        	if(!rq.isChangeValid()) {
+	        		return Response.status(Status.BAD_REQUEST).entity("Password change is invalid").build();
+	        	}
+	        	if(!rq.isNewPasswordValid()) {
+	        		return Response.status(Status.BAD_REQUEST).entity("Password isn't secure enough").build();
+	        	}
+	        	
+	        	Key userKey = datastore.newKeyFactory()
+                        .setKind(UserEntity.Kind)
+                        .newKey(at.getUsername());
+	        	Transaction txn = datastore.newTransaction();
+	        	
+	        	try {
+	        		Entity user = txn.get(userKey);
+	        		
+	        		String currentPass = user.getString("password");
+	        		String passwordRequest = DigestUtils.sha1Hex(rq.getCurrentPassword());
+	        		
+	        		if(currentPass.equals(passwordRequest)) {
+	        			return Response.status(Status.BAD_REQUEST).entity("Current password incorrect").build();
+	        		}
+	        		
+	        		String newPassword = DigestUtils.sha1Hex(rq.getNewPassword());
+	        		Entity updatedUser = Entity.newBuilder(user).set("password", newPassword).build();
+	        		
+	        		txn.update(updatedUser);
+	        		txn.commit();
+	        		
+	        		LOG.info("password changed with success");
+	        		return Response.ok().entity("Your password has been changed").build();
+	        	} finally {
+	        		if(txn.isActive())
+	        			txn.rollback();
+	        	}
+	    	} catch(Exception e) {
+	    		LOG.log(Level.SEVERE, "Error changing password", e);
 	    		return Response.status(Status.BAD_REQUEST).build();
 	    	}
 	    }

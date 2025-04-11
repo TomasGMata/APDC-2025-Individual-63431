@@ -51,7 +51,7 @@ public class LoginResource {
         	
         	String hashedPass = user.getString("password");
         	
-        	if(hashedPass.equals(DigestUtils.sha3_512Hex(data.password))) {
+        	if(hashedPass.equals(DigestUtils.sha1Hex(data.password))) {
         		AuthToken at = new AuthToken(data.identifier, user.getString("role"));
         		LOG.info("User login was successfull");
         		

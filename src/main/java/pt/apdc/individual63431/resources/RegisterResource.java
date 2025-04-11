@@ -104,7 +104,7 @@ public class RegisterResource {
             rootUser.state = "ATIVADA";
             
             Entity root = Entity.newBuilder(rootKey)
-            		.set("password", DigestUtils.sha256Hex(rootUser.password))
+            		.set("password", DigestUtils.sha1Hex(rootUser.password))
             		.set("username", rootUser.username)
             		.set("email", rootUser.email)
             		.set("fullName", rootUser.fullName)
