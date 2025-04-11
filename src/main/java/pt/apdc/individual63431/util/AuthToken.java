@@ -24,6 +24,10 @@ public class AuthToken {
         this.validTo = this.validFrom + EXPIRATION_TIME;
 
     }
+    
+    public String getUsername() {
+    	return username;
+    }
 
     public String getTokenID() {
         return tokenID;

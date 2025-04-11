@@ -209,6 +209,33 @@
 	    	}
 	    }
 	    
+	    
+	    @POST
+	    @Path("/listUsers")
+	    @Consumes(MediaType.APPLICATION_JSON)
+	    @Produces(MediaType.APPLICATION_JSON)
+	    public Response updateUserData(UserData newData, AuthToken t) {
+	        try {
+	        	AuthToken at = isTokenValid(t);
+	        	if(at == null) {
+	        		return Response.status(Status.FORBIDDEN).entity("User isn't logged").build();
+	        	}
+	        	
+	        	Key targetKey = datastore.newKeyFactory()
+                        .setKind(UserEntity.Kind)
+                        .newKey(t.getUsername());
+	        	Transaction txn = datastore.newTransaction();
+	        	
+	        	// more things to come
+	        	
+	        	return Response.ok().build();
+	        	
+	        } catch (Exception e) {
+	    		LOG.log(Level.SEVERE, "Error listing user accounts", e);
+	    		return Response.status(Status.BAD_REQUEST).build();
+	    	}
+	    }
+	    
 	    private AuthToken isTokenValid(AuthToken token) {
 	    	return null;
 	    }
