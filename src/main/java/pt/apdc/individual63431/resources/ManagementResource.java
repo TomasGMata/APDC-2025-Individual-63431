@@ -420,23 +420,36 @@
 	    }
 	    
 	    @POST
-	    @Path("/logout")
+	    @Path("/loggout")
 	    @Consumes(MediaType.APPLICATION_JSON)
 	    @Produces(MediaType.APPLICATION_JSON)
-	    public Response logoutOfAccount(@HeaderParam("Authorization") String tokenID) {
+	    public Response loggoutOfAccount(@HeaderParam("Authorization") String tokenID) {
 	    	Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(tokenID);
 	    	
 	    	try {
+	    		Entity tokenEntity = datastore.get(tokenKey);
+	    		if(isTokenValid(tokenEntity)) {
+	    			return Response.status(Status.FORBIDDEN).entity("User isn't logged").build();
+	    		}
 	    		
-	    		
-	    		return Response.ok().build();
+	    		Transaction txn = datastore.newTransaction();
+	    		try {
+	    			Entity notLoggedToken = Entity.newBuilder(tokenEntity)
+	    					.set("validTo", System.currentTimeMillis()-0.01).build();
+	    			txn.update(notLoggedToken);
+	    			txn.commit();
+	    			
+	    			LOG.info("User isnt logeed out");
+	    			return Response.ok().entity("You have logged out successfully").build();
+	    		} finally {
+	    			if(txn.isActive()) txn.rollback();
+	    		}
 	    	} catch (DatastoreException e) {
 	    		LOG.severe("Não conseguiu aceder a datastore");
 	    		return Response.serverError().entity("{\"error\": \"error accessing datastor\"}").build();
-    	} catch(Exception e) {
-    		LOG.log(Level.SEVERE, "Error changing password", e);
-    		return Response.status(Status.BAD_REQUEST).build();
-    	}
+	    	} catch(Exception e) {
+	    		LOG.log(Level.SEVERE, "Error changing password", e);
+	    		return Response.status(Status.BAD_REQUEST).build(); }
 	    }
 	    
 	    private boolean isTokenValid(Entity token) {
