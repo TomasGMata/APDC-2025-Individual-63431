@@ -1,6 +1,8 @@
 package pt.apdc.individual63431.util;
 
-import com.google.cloud.datastore.*;
+import com.google.cloud.datastore.Key;
+import com.google.cloud.datastore.Entity;
+import com.google.cloud.datastore.Datastore;
 
 public class UserEntity {
 

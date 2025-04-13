@@ -17,7 +17,14 @@
 	import pt.apdc.individual63431.util.UserData;
 	import pt.apdc.individual63431.util.UserEntity;
 	
-	import com.google.cloud.datastore.*;
+	import com.google.cloud.datastore.Entity;
+	import com.google.cloud.datastore.Key;
+	import com.google.cloud.datastore.DatastoreOptions;
+	import com.google.cloud.datastore.Datastore;
+	import com.google.cloud.datastore.Transaction;	
+	import com.google.cloud.datastore.DatastoreException;
+	import com.google.cloud.datastore.Query;
+	import com.google.cloud.datastore.QueryResults;
 	import com.google.gson.Gson;
 
 	import java.util.logging.Logger;
@@ -35,6 +42,13 @@
 	
 	    public ManagementResource() {
 	
+	    }
+	    
+	    @GET
+	    @Path("/test")
+	    @Produces(MediaType.TEXT_PLAIN)
+	    public String testEndpoint() {
+	        return "Endpoint de registro está funcionando! Use POST para registrar.";
 	    }
 	    
 	    @POST
@@ -453,8 +467,8 @@
 	    }
 	    
 	    private boolean isTokenValid(Entity token) {
-	    	long curretTime = System.currentTimeMillis();
-	    	return token == null || curretTime < token.getLong("validTo");
+	    	long currentTime = System.currentTimeMillis();
+	    	return token != null && currentTime < token.getLong("validTo");
 	    }
 	    
 	    @PostConstruct

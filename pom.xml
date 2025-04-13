@@ -3,8 +3,8 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>pt.apdc.individual63431</groupId>
   <artifactId>APDC-2025-Individual-63431</artifactId>
+  <version>0.0.1</version>
   <packaging>war</packaging>
-  <version>1.0</version>
 
   <name>APDC-2025-Individual-63431</name>
   <description>APDC 2425 Individual Project</description>
@@ -90,6 +90,13 @@
 		  <groupId>com.google.cloud</groupId>
 		  <artifactId>google-cloud-datastore</artifactId>
 		</dependency>
+		
+		<dependency>
+			<groupId>commons-codec</groupId>
+			<artifactId>commons-codec</artifactId>
+			<version>1.15</version>
+		</dependency>
+		
   </dependencies>
 
   <build>
