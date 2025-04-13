@@ -1,22 +1,19 @@
 	package pt.apdc.individual63431.resources;
 	
 	import jakarta.annotation.PostConstruct;
-import jakarta.ws.rs.Consumes;
+	import jakarta.ws.rs.Consumes;
 	import jakarta.ws.rs.GET;
-import jakarta.ws.rs.HeaderParam;
-import jakarta.ws.rs.POST;
+	import jakarta.ws.rs.HeaderParam;
+	import jakarta.ws.rs.POST;
 	import jakarta.ws.rs.Path;
 	import jakarta.ws.rs.PathParam;
 	import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
-import jakarta.ws.rs.core.MediaType;
+	import jakarta.ws.rs.QueryParam;
+	import jakarta.ws.rs.core.MediaType;
 	import jakarta.ws.rs.core.Response;
 	import jakarta.ws.rs.core.Response.Status;
 	
 	import pt.apdc.individual63431.util.AuthToken;
-import pt.apdc.individual63431.util.ChangePasswordRequest;
-import pt.apdc.individual63431.util.RemoveAccountRequest;
-	import pt.apdc.individual63431.util.RequestManagementChange;
 	import pt.apdc.individual63431.util.UserData;
 	import pt.apdc.individual63431.util.UserEntity;
 	
@@ -372,6 +369,7 @@ import pt.apdc.individual63431.util.RemoveAccountRequest;
 	    @POST
 	    @Path("/change-password")
 	    @Consumes(MediaType.APPLICATION_JSON)
+	    @Produces(MediaType.APPLICATION_JSON)
 	    public Response changePassword(@HeaderParam("Authorization") String tokenID, @QueryParam("target") String targetUsername
 	    		, @QueryParam("currentPsw") String currentPsw, @QueryParam("newPsw1") String newPsw1, @QueryParam("newPsw2") String newPsw2) {
 	    	Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(tokenID);
@@ -419,6 +417,26 @@ import pt.apdc.individual63431.util.RemoveAccountRequest;
 	    		LOG.log(Level.SEVERE, "Error changing password", e);
 	    		return Response.status(Status.BAD_REQUEST).build();
 	    	}
+	    }
+	    
+	    @POST
+	    @Path("/logout")
+	    @Consumes(MediaType.APPLICATION_JSON)
+	    @Produces(MediaType.APPLICATION_JSON)
+	    public Response logoutOfAccount(@HeaderParam("Authorization") String tokenID) {
+	    	Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(tokenID);
+	    	
+	    	try {
+	    		
+	    		
+	    		return Response.ok().build();
+	    	} catch (DatastoreException e) {
+	    		LOG.severe("Não conseguiu aceder a datastore");
+	    		return Response.serverError().entity("{\"error\": \"error accessing datastor\"}").build();
+    	} catch(Exception e) {
+    		LOG.log(Level.SEVERE, "Error changing password", e);
+    		return Response.status(Status.BAD_REQUEST).build();
+    	}
 	    }
 	    
 	    private boolean isTokenValid(Entity token) {
