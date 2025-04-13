@@ -37,11 +37,9 @@ public class LoginResource {
     @Consumes(MediaType.APPLICATION_JSON)    
     @Produces(MediaType.APPLICATION_JSON)
     public Response doLogin(LoginData data) {
-        LOG.fine("Login attempt by user: " + data.identifier);
-        
-        Key userKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(data.identifier);
+    	Key userKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(data.identifier);
         Transaction txn = datastore.newTransaction();
-        
+    	
         try {
         	Entity user = txn.get(userKey);
         	if (user == null) {
@@ -52,15 +50,15 @@ public class LoginResource {
         	String hashedPass = user.getString("password");
         	
         	if(hashedPass.equals(DigestUtils.sha1Hex(data.password))) {
-        		AuthToken at = new AuthToken(data.identifier, user.getString("role"));
+        		AuthToken token = new AuthToken(data.identifier);
         		LOG.info("User login was successfull");
         		
-        		Key tokenK = datastore.newKeyFactory().setKind("AuthToken").newKey(at.getTokenID());
-        		Entity token = Entity.newBuilder(tokenK).set("username", data.identifier)
-        				.set("expirationTime", at.getValidTo()).build();
-        		datastore.put(token);
+        		Key tokenK = datastore.newKeyFactory().setKind("AuthToken").newKey(token.getTokenID());
+        		Entity tokenEntity = Entity.newBuilder(tokenK).set("username", data.identifier)
+        				.set("validTo", token.getValidTo()).build();
+        		datastore.put(tokenEntity);
         		
-        		return Response.ok(g.toJson(at)).build();
+        		return Response.ok(g.toJson(token)).build();
         	}
         	else {
         		return Response.status(Status.FORBIDDEN).entity("Incorrect username or password.").build();

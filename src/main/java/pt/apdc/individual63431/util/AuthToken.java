@@ -7,7 +7,6 @@ public class AuthToken {
     private static final long EXPIRATION_TIME = 1000*60*60*2;
 
     private String username;
-    private String role;
     private long validFrom;
     private long validTo;
     private String tokenID;
@@ -16,9 +15,8 @@ public class AuthToken {
 
     }
 
-    public AuthToken(String username, String role) {
+    public AuthToken(String username) {
         this.username = username;
-        this.role = role;
         this.tokenID = UUID.randomUUID().toString();
         this.validFrom = System.currentTimeMillis();
         this.validTo = this.validFrom + EXPIRATION_TIME;
@@ -40,7 +38,5 @@ public class AuthToken {
     public long getValidTo() {
         return validTo;
     }
-
-    public String getRole() { return role; }
 
 }

@@ -18,11 +18,5 @@ public class RemoveAccountRequest {
 	
 	public String setUsername(String targetUsername) { return this.targetUsername = targetUsername; }
 	
-	public boolean hasPermissionToRemove(Entity targetUser) {
-		String requesterRole = token.getRole();
-		String targetRole = targetUser.getString("role");
-		if("admin".equals(requesterRole)) return true;
-		else if ("backoffice".equals(requesterRole)) { return "enduser".equals(targetRole) || "partner".equals(targetRole); }
-		else return false;
-	}	
+		
 }
