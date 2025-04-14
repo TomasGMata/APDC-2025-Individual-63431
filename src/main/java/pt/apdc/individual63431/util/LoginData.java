@@ -2,14 +2,14 @@ package pt.apdc.individual63431.util;
 
 public class LoginData {
 
-    public String identifier;
+    public String username;
     public String password;
 
     public LoginData() {
     }
 
-    public LoginData(String identifier, String password) {
-    	this.identifier = identifier;
+    public LoginData(String username, String password) {
+    	this.username = username;
     	this.password = password;
     }
 

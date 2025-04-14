@@ -7,7 +7,7 @@ import com.google.cloud.datastore.Datastore;
 public class UserEntity {
 
     public static final String Kind = "User";
-
+    
     public static Entity toEntity(UserData data, Datastore datastore) {
         Key userKey = datastore.newKeyFactory().setKind(Kind).newKey(data.username);
 

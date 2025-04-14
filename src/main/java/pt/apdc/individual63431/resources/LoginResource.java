@@ -37,7 +37,7 @@ public class LoginResource {
     @Consumes(MediaType.APPLICATION_JSON)    
     @Produces(MediaType.APPLICATION_JSON)
     public Response doLogin(LoginData data) {
-    	Key userKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(data.identifier);
+    	Key userKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(data.username);
         Transaction txn = datastore.newTransaction();
     	
         try {
@@ -50,18 +50,18 @@ public class LoginResource {
         	String hashedPass = user.getString("password");
         	
         	if(hashedPass.equals(DigestUtils.sha1Hex(data.password))) {
-        		AuthToken token = new AuthToken(data.identifier);
+        		AuthToken token = new AuthToken(data.username);
         		LOG.info("User login was successfull");
         		
         		Key tokenK = datastore.newKeyFactory().setKind("AuthToken").newKey(token.getTokenID());
-        		Entity tokenEntity = Entity.newBuilder(tokenK).set("username", data.identifier)
+        		Entity tokenEntity = Entity.newBuilder(tokenK).set("username", data.username)
         				.set("validTo", token.getValidTo()).build();
         		datastore.put(tokenEntity);
         		
         		return Response.ok(g.toJson(token)).build();
         	}
         	else {
-        		return Response.status(Status.FORBIDDEN).entity("Incorrect username or password.").build();
+        		return Response.status(Status.FORBIDDEN).entity("Incorrect password.").build();
         	}
         	
         } catch(Exception e) {

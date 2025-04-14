@@ -42,28 +42,6 @@
 	
 	    }
 	    
-	    @GET
-	    @Path("/test")
-	    @Produces(MediaType.TEXT_PLAIN)
-	    public String testEndpoint() {
-	    	return "Endpoint funcionando - Datastore status: " + 
-	    	           (datastore != null ? "Conectado" : "Não conectado");
-	    }
-	    
-	    @GET
-	    @Path("/test-datastore")
-	    public Response testDatastore() {
-	        try {
-	        	Datastore datastore = DatastoreOptions.getDefaultInstance().getService();
-	            Key key = datastore.newKeyFactory().setKind("TestKind").newKey("test-key");
-	            datastore.put(Entity.newBuilder(key).set("status", "OK").build());
-	            return Response.ok("Datastore funcionando!").build();
-	        } catch (Exception e) {
-	            LOG.severe("Erro no Datastore: " + e.getMessage());
-	            return Response.serverError().entity("Erro: " + e.getMessage()).build();
-	        }
-	    }
-	    
 	    @POST
 	    @Path("/register")
 	    @Consumes(MediaType.APPLICATION_JSON)
@@ -93,7 +71,7 @@
 	            data.role="enduser";
 	            data.state="DESATIVADA";
 	            Entity newUser = Entity.newBuilder(userKey)
-	            		.set("password", DigestUtils.sha256Hex(data.password))
+	            		.set("password", DigestUtils.sha1Hex(data.password))
 	            		.set("username", data.username)
 	            		.set("email", data.email)
 	            		.set("fullName", data.fullName)
