@@ -19,9 +19,10 @@ import pt.apdc.individual63431.util.UserData;
 import pt.apdc.individual63431.util.LoginData;
 import pt.apdc.individual63431.util.UserEntity;
 import com.google.gson.Gson;
+import com.google.cloud.Timestamp;
 import com.google.cloud.datastore.*;
 
-@Path("/login")
+@Path("/welcome")
 @Produces(MediaType.APPLICATION_JSON + ";charset=utf-8")
 public class LoginResource {
 	
@@ -33,12 +34,11 @@ public class LoginResource {
     }
 
     @POST
-    @Path("/")
+    @Path("/login")
     @Consumes(MediaType.APPLICATION_JSON)    
     @Produces(MediaType.APPLICATION_JSON)
     public Response doLogin(LoginData data) {
     	boolean isEmail = data.username.contains("@");
-        Transaction txn = datastore.newTransaction();
     	
         try {
         	
@@ -60,19 +60,19 @@ public class LoginResource {
         	
         	AuthToken token = new AuthToken(user.getString("username"), user.getString("role"));
     		Key tokenK = datastore.newKeyFactory().setKind("AuthToken").newKey(token.getTokenID());
+    		
     		Entity tokenEntity = Entity.newBuilder(tokenK).set("username", token.getUsername())
-    				.set("validTo", token.getValidTo()).set("role", token.getRole()).set("validFrom", token.getValidFrom()).build();
+    				.set("validTo", token.getValid().VALID_TO).set("role", token.getRole())
+    				.set("validFrom", token.getValid().VALID_FROM).set("verifier", token.getVerifier()).build();
     		datastore.put(tokenEntity);
     		
     		return Response.ok().entity("{\"token\": " + g.toJson(token)).build();	
         	
-        } catch(Exception e) {
-        	txn.rollback();
-            LOG.log(Level.SEVERE, "Erro durante o login", e);
-        	return Response.status(Status.INTERNAL_SERVER_ERROR).build();
-        } finally {
-        	if (txn.isActive()) txn.rollback();
-        }
+        } catch (Exception e) {
+            return Response.serverError()
+                .entity("{\"error\": \"Ocorreu um erro durante o login: " + e.getMessage() + "\"}")
+                .build();
+        } 
     }
     
     private Entity getUserEntity (String login, boolean isEmail) {

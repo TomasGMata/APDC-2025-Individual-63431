@@ -1,6 +1,7 @@
 	package pt.apdc.individual63431.resources;
 	
-	import jakarta.ws.rs.Consumes;
+	import jakarta.annotation.PostConstruct;
+import jakarta.ws.rs.Consumes;
 	import jakarta.ws.rs.GET;
 	import jakarta.ws.rs.HeaderParam;
 	import jakarta.ws.rs.POST;
@@ -8,7 +9,8 @@
 	import jakarta.ws.rs.PathParam;
 	import jakarta.ws.rs.Produces;
 	import jakarta.ws.rs.QueryParam;
-	import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
 	import jakarta.ws.rs.core.Response;
 	import jakarta.ws.rs.core.Response.Status;
 	
@@ -29,8 +31,12 @@
 	import java.util.logging.Logger;
 	import java.util.regex.Pattern;
 	import java.util.ArrayList;
-	import java.util.List;
-	import java.util.logging.Level;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.logging.Level;
 	import org.apache.commons.codec.digest.DigestUtils;
 	
 	@Path("/user-management")
@@ -42,6 +48,8 @@
 	    
 	    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 	    private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!])(?=\\S+$).{8,}$");
+	    private static final List<String> ROLES = Arrays.asList("enduser","admin","backoffice","partner");
+	    private static final List<String> STATES = Arrays.asList("ATIVADA","DESATIVADA","SUSPENSA");
 	    
 	    public ManagementResource() {
 	
@@ -115,38 +123,44 @@
 	    @Consumes(MediaType.APPLICATION_JSON)
 	    @Produces(MediaType.APPLICATION_JSON)
 	    public Response changeUserRole(@HeaderParam("Authorization") String tokenID,
-	    		@QueryParam("target") String targetUsername, @QueryParam("newRole") String newRole) {
-	        Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(tokenID);
+	    		@QueryParam("target") String target, @QueryParam("newRole") String newRole) {
 	        
 	    	try {
-	    		Entity tokenEntity = datastore.get(tokenKey);
+	    		Entity tokenEntity = validateTokenAndRole(tokenID, "admin", "backoffice");
+	    		String requesterRole = tokenEntity.getString("role");
 	    		if(!isTokenValid(tokenEntity)) {
 		        	return Response.status(Status.FORBIDDEN).entity("User isn´t logged").build();
 		    	}
 		        
-		        Key requesterKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(tokenEntity.getString("username"));
-		        Key targetKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(targetUsername);
-		        Transaction txn = datastore.newTransaction();
+		        Key targetKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(target);
+		        Entity targetUsr = datastore.get(targetKey);
 		        
-		        try {
-		        	Entity requesterUsr = txn.get(requesterKey);
-		        	Entity targetUsr = txn.get(targetKey);
-		        	if(targetUsr==null) {
-			        	LOG.warning("targeted user not found");
-			        	return Response.status(Status.BAD_REQUEST).entity("Target user doesn't exist").build();
-			        }
-			        
-			        if(!hasPermissionForRequestRole(requesterUsr.getString("role"), targetUsr.getString("role"), newRole)) {
-			            return Response.status(Status.FORBIDDEN).entity("User isn't authorized to change this user role").build();
-			        }
-		        	
-		        	Entity updatedUser = Entity.newBuilder(targetUsr)
-		            		.set("role", newRole).build();
-		        	txn.update(updatedUser);
-		        	txn.commit();
-		        	
-		        	LOG.info("Role changed with success");
-	        		return Response.ok().entity("User role updated successfully").build();
+		        if(targetUsr==null) {
+		        	LOG.warning("targeted user not found");
+		        	return Response.status(Status.BAD_REQUEST).entity("Target user doesn't exist").build();
+		        }
+		        String currentRole = targetUsr.getString("role");
+		        if ("backoffice".equals(requesterRole)) {
+	                if (!(("enduser".equals(currentRole) && "partner".equals(newRole)) || 
+	                     ("partner".equals(currentRole) && "enduser".equals(newRole)))) {
+	                    return Response.status(Status.FORBIDDEN)
+	                        .entity("{\"error\": \"BACKOFFICE só pode mudar ENDUSER para PARTNER e vice-versa\"}").build();
+	                }
+	            }
+
+
+	            Entity updatedUser = Entity.newBuilder(targetUsr)
+	                .set("role", newRole)
+	                .build();
+
+	            Transaction txn = datastore.newTransaction();
+	            try {
+	                txn.update(updatedUser);
+	                txn.commit();
+		        
+		        
+		        return Response.ok().entity("User role updated successfully").build();
+		        
 		        }finally {
 		        	if (txn.isActive()) txn.rollback();
 		        }
@@ -213,8 +227,7 @@
 	    @Path("/remove-account")
 	    @Consumes(MediaType.APPLICATION_JSON)	    
 	    @Produces(MediaType.APPLICATION_JSON)
-	    public Response removeUserAccount(@HeaderParam("Authorization") String tokenID, @QueryParam("target") String targetUsername
-	    		,@QueryParam("newPsw1") String newPsw1, @QueryParam("newPsw2") String newPsw2) {
+	    public Response removeUserAccount(@HeaderParam("Authorization") String tokenID, @QueryParam("target") String targetUsername) {
 	    	Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(tokenID);
 	    	
 	    	try {
@@ -260,45 +273,69 @@
 	    @Consumes(MediaType.APPLICATION_JSON)
 	    @Produces(MediaType.APPLICATION_JSON)
 	    public Response listUsers(@HeaderParam("Authorization") String tokenID) {
-	    	Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(tokenID);
-	    	
-	        try {
-	        	Entity tokenEntity = datastore.get(tokenKey);
-	        	if(!isTokenValid(tokenEntity)) {
-	        		return Response.status(Status.FORBIDDEN).entity("User isn't logged").build();
-	        	}
+	    	try {
+	            Entity tokenEntity = validateTokenAndRole(tokenID, "enduser", "backoffice", "admin");
+	            String requesterRole = tokenEntity.getString("role");
 
-	            Query<Entity> query = Query.newEntityQueryBuilder()
+	            QueryResults<Entity> users = datastore.run(Query.newEntityQueryBuilder()
 	                .setKind("User")
-	                .build();
+	                .build());
 
-	            QueryResults<Entity> results = datastore.run(query);
-	            List<UserData> userList = new ArrayList<>();
-	            
-	            while (results.hasNext()) {
-	            	Entity user = results.next();
-	            	String role = user.getString("role");
-	            	String state = user.getString("state");
-	            	String privacy = user.getString("privacy");
-	            	
-	            	/*if(isAdmin || isBackoffice && role.equalsIgnoreCase("enduser")) {
-	            		
-	            	}*/
-	            	
+	            List<Map<String, String>> result = new ArrayList<>();
+
+	            while (users.hasNext()) {
+	                Entity user = users.next();
+	                String userRole = user.getString("role");
+	                String accountState = user.getString("accountState");
+	                String profile = user.getString("privacy");
+
+	                if (requesterRole.equals("admin") || 
+	                    (requesterRole.equals("") && userRole.equals("enduser")) ||
+	                    (requesterRole.equals("enduser") && userRole.equals("enduser") && 
+	                     profile.equals("public") && accountState.equals(""))) {
+
+	                    Map<String, String> userData = new HashMap<>();
+
+	                    userData.put("username", user.getString("username"));
+	                    userData.put("email", user.getString("email"));
+
+	                    if (requesterRole.equals("admin") || requesterRole.equals("backoffice")) {
+	                        userData.put("fullName", getValueOrNotDefined(user, "fullName"));
+	                        userData.put("phone", getValueOrNotDefined(user, "phoneNumber"));
+	                        userData.put("profile", profile);
+	                        userData.put("role", userRole);
+	                        userData.put("accountState", accountState);
+
+	                        userData.put("ccNumber", getValueOrNotDefined(user, "ccNumber"));
+	                        userData.put("NIF", getValueOrNotDefined(user, "NIF"));
+	                        userData.put("employer", getValueOrNotDefined(user, "employer"));
+	                        userData.put("jobTitle", getValueOrNotDefined(user, "jobTitle"));
+	                        userData.put("address", getValueOrNotDefined(user, "address"));
+	                        userData.put("employerNIF", getValueOrNotDefined(user, "employerNIF"));
+	                    } else {
+	                        userData.put("fullName", getValueOrNotDefined(user, "fullName"));
+	                    }
+
+	                    result.add(userData);
+	                }
 	            }
-	            
-	            return Response.ok().entity(userList).build();
-	        } catch (DatastoreException e) {
-	    		LOG.severe("Não conseguiu aceder a datastore");
-	    		return Response.serverError().entity("{\"error\": \"error accessing datastor\"}").build();
+
+	            return Response.ok(new Gson().toJson(result)).build();
+
 	        } catch (Exception e) {
-	    		LOG.log(Level.SEVERE, "Error listing user accounts", e);
-	    		return Response.status(Status.BAD_REQUEST).build();
-	    	}
+	            return Response.serverError()
+	                .entity("{\"error\": \"Erro ao listar utilizadores: " + e.getMessage() + "\"}")
+	                .build();
+	        }
 	    }
 	    
 	    
-	    @POST
+	    private String getValueOrNotDefined(Entity user, String string) {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+		@POST
 	    @Path("/update-account")
 	    @Consumes(MediaType.APPLICATION_JSON)
 	    @Produces(MediaType.APPLICATION_JSON)
@@ -479,50 +516,96 @@
 	    	return token != null && currentTime < token.getLong("validTo");
 	    }
 	    
-	    /*@PostConstruct
-	    private void initRootUser() {
-	    	Transaction txn = datastore.newTransaction();
+	    private Entity validateTokenAndRole(String token, String... allowedRoles) {
 	    	
-	    	try {
-	    		
-	    		Key rootKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey("root");
+	        Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(token);
+	        Entity tokenEntity = datastore.get(tokenKey);
+	        
+	        if (tokenEntity == null) {
+	            throw new WebApplicationException(
+	                Response.status(Status.UNAUTHORIZED).entity("{\"error\": \"invalid token\"}").build());
+	        }
 
-	            if (datastore.get(rootKey) != null) {
-	                LOG.info("Root user already exists. Skipping initialization.");
-	                return;
+	        long validTo = tokenEntity.getLong("validTo");
+	        if (System.currentTimeMillis() > validTo) {
+	            throw new WebApplicationException(
+	                Response.status(Status.UNAUTHORIZED).entity("{\"error\": \"expired token\"}").build());
+	        }
+
+	        String userRole = tokenEntity.getString("role");
+	        if (allowedRoles.length > 0 && !Arrays.asList(allowedRoles).contains(userRole)) {
+	            throw new WebApplicationException(
+	                Response.status(Status.FORBIDDEN).entity("{\"error\": \"unauthorized access\"}").build());
+	        }
+
+	        return tokenEntity;
+	    }
+	    
+	    @Path("/initRoot")
+	    @GET
+	    @Produces(MediaType.APPLICATION_JSON)
+	    public Response forceInitRootUser() {
+	        try {
+	            Key rootKey = datastore.newKeyFactory().setKind("User").newKey("root");
+	            Entity rootUser = datastore.get(rootKey);
+	            
+	            if (rootUser == null) {
+	                initRootUser();
+	                rootUser = datastore.get(rootKey);
 	            }
 
-	            UserData rootUser = new UserData();
-	            rootUser.username = "root";
-	            rootUser.email = "t.mata@campus.fct.unl.pt";
-	            rootUser.fullName = "System Administrator";
-	            rootUser.phoneNumber = "000000000";
-	            rootUser.password = "admin123";
-	            rootUser.privacy = "private";
-	            rootUser.role = "admin";
-	            rootUser.state = "ATIVADA";
+	            String tokenId = UUID.randomUUID().toString().replace("-", "");
+	            long validTo = System.currentTimeMillis() + (3600 * 1000);
 	            
-	            Entity root = Entity.newBuilder(rootKey)
-	            		.set("password", DigestUtils.sha1Hex(rootUser.password))
-	            		.set("username", rootUser.username)
-	            		.set("email", rootUser.email)
-	            		.set("fullName", rootUser.fullName)
-	            		.set("phoneNumber", rootUser.phoneNumber)
-	            		.set("privacy", rootUser.privacy)
-	            		.set("role", rootUser.role)
-	            		.set("state", rootUser.state).build();
-	            txn.put(root);
-	            txn.commit();
+	            Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(tokenId);
+	            Entity authToken = Entity.newBuilder(tokenKey)
+	                    .set("username", "root")
+	                    .set("role", "admin")
+	                    .set("creationTime", System.currentTimeMillis())
+	                    .set("validTo", validTo)
+	                    .build();
 	            
-	            LOG.info("Root user created.");
+	            datastore.put(authToken);
 	            
-	    	} catch(DatastoreException e) {
-	    		LOG.severe("error creating root admin");
-	    		return;
-	    	} finally {
-	    		if(txn.isActive()) txn.rollback();
-	    	}
-	    }*/
+	            LOG.info("Root user initialized and logged in successfully");
+	            return Response.ok()
+	                    .entity("{\"token\": \"" + tokenId + "\"}")
+	                    .build();
+	            
+	        } catch (Exception e) {
+	            LOG.severe("Error initializing root user: " + e.getMessage());
+	            return Response.serverError()
+	                    .entity("{\"error\": \"Failed to initialize root user\"}")
+	                    .build();
+	        }
+	    }
+	    
+	    @PostConstruct
+	    public void initRootUser() {
+	        Transaction txn = datastore.newTransaction();
+	        try {
+	            Key rootKey = datastore.newKeyFactory().setKind("User").newKey("root");
+	            if (txn.get(rootKey) == null) {
+	                Entity rootUser = Entity.newBuilder(rootKey)
+	                		.set("password", DigestUtils.sha1Hex("adminPass123!"))
+	                        .set("username", "root")
+	                        .set("email", "root@admin.pt")
+	                        .set("fullName", "System Administrator")
+	                        .set("phoneNumber", "000000000")
+	                        .set("privacy", "private")
+	                        .set("role", "admin")
+	                        .set("state", "ATIVADA")
+	                    .build();
+	                
+	                txn.put(rootUser);
+	                txn.commit();
+	                LOG.info("Utilizador root/admin criado com sucesso!");
+	            }
+	        } catch (Exception e) {
+	            if (txn.isActive()) txn.rollback();
+	            LOG.severe("Erro ao criar root user: " + e.getMessage());
+	        }
+	    }
 	        
 	    
 	    

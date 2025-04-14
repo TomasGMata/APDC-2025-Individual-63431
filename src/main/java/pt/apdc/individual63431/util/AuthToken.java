@@ -8,19 +8,29 @@ public class AuthToken {
 
     private String username;
     private String role;
-    private long validFrom;
-    private long validTo;
+    private ValidTime VALID;
+    private  String verifier;
     private String tokenID;
-
+    
+    public static class ValidTime {
+    	public final long VALID_FROM;
+    	public final long VALID_TO;
+    	
+    	public ValidTime(long valFrom, long valTo) {
+    		this.VALID_FROM = valFrom;
+    		this.VALID_TO = valTo;
+    	}
+    }
+    
     public AuthToken() {
-
     }
 
     public AuthToken(String username, String role) {
         this.username = username;
         this.tokenID = UUID.randomUUID().toString();
-        this.validFrom = System.currentTimeMillis();
-        this.validTo = this.validFrom + EXPIRATION_TIME;
+        long currentTime = System.currentTimeMillis();
+        this.VALID = new ValidTime(currentTime, currentTime + EXPIRATION_TIME);
+        this.verifier = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
 
     }
     
@@ -36,12 +46,12 @@ public class AuthToken {
         return tokenID;
     }
 
-    public long getValidFrom() {
-        return validFrom;
+    public ValidTime getValid() {
+        return VALID;
     }
-
-    public long getValidTo() {
-        return validTo;
+    
+    public String getVerifier() {
+        return verifier;
     }
 
 }
