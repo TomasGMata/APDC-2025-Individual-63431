@@ -37,11 +37,12 @@ public class LoginResource {
     @Consumes(MediaType.APPLICATION_JSON)    
     @Produces(MediaType.APPLICATION_JSON)
     public Response doLogin(LoginData data) {
-    	Key userKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(data.username);
+    	boolean isEmail = data.username.contains("@");
         Transaction txn = datastore.newTransaction();
     	
         try {
-        	Entity user = txn.get(userKey);
+        	
+        	Entity user = getUserEntity(data.username, isEmail);
         	if (user == null) {
         		LOG.warning("User does not exist");
         		return Response.status(Status.FORBIDDEN).entity("User doesn't exist, please get registered").build();
@@ -49,20 +50,21 @@ public class LoginResource {
         	
         	String hashedPass = user.getString("password");
         	
-        	if(hashedPass.equals(DigestUtils.sha1Hex(data.password))) {
-        		AuthToken token = new AuthToken(data.username);
-        		LOG.info("User login was successfull");
-        		
-        		Key tokenK = datastore.newKeyFactory().setKind("AuthToken").newKey(token.getTokenID());
-        		Entity tokenEntity = Entity.newBuilder(tokenK).set("username", data.username)
-        				.set("validTo", token.getValidTo()).build();
-        		datastore.put(tokenEntity);
-        		
-        		return Response.ok(g.toJson(token)).build();
-        	}
-        	else {
+        	if(!hashedPass.equals(DigestUtils.sha1Hex(data.password))) {
         		return Response.status(Status.FORBIDDEN).entity("Incorrect password.").build();
         	}
+        	
+        	if(user.getString("state").equals("DESATIVADA")) {
+        		return Response.status(Status.FORBIDDEN).entity("Account is not active").build();
+        	}
+        	
+        	AuthToken token = new AuthToken(user.getString("username"), user.getString("role"));
+    		Key tokenK = datastore.newKeyFactory().setKind("AuthToken").newKey(token.getTokenID());
+    		Entity tokenEntity = Entity.newBuilder(tokenK).set("username", token.getUsername())
+    				.set("validTo", token.getValidTo()).set("role", token.getRole()).set("validFrom", token.getValidFrom()).build();
+    		datastore.put(tokenEntity);
+    		
+    		return Response.ok().entity("{\"token\": " + g.toJson(token)).build();	
         	
         } catch(Exception e) {
         	txn.rollback();
@@ -71,6 +73,22 @@ public class LoginResource {
         } finally {
         	if (txn.isActive()) txn.rollback();
         }
+    }
+    
+    private Entity getUserEntity (String login, boolean isEmail) {
+    	Query<Entity> query;
+        
+        if (isEmail) {
+            query = Query.newEntityQueryBuilder().setKind("User")
+                .setFilter(StructuredQuery.PropertyFilter.eq("email", login))
+                .build();
+            QueryResults<Entity> results = datastore.run(query);
+            return results.hasNext() ? results.next() : null;
+        } else {
+            Key userKey = datastore.newKeyFactory().setKind("User").newKey(login);
+            return datastore.get(userKey);
+        }
+        
     }
 
 }

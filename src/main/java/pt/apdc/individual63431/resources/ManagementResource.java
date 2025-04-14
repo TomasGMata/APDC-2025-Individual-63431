@@ -18,6 +18,7 @@
 	import com.google.cloud.datastore.Entity;
 	import com.google.cloud.datastore.Key;
 	import com.google.cloud.datastore.DatastoreOptions;
+	import com.google.cloud.datastore.StructuredQuery.PropertyFilter;
 	import com.google.cloud.datastore.Datastore;
 	import com.google.cloud.datastore.Transaction;	
 	import com.google.cloud.datastore.DatastoreException;
@@ -26,6 +27,7 @@
 	import com.google.gson.Gson;
 
 	import java.util.logging.Logger;
+	import java.util.regex.Pattern;
 	import java.util.ArrayList;
 	import java.util.List;
 	import java.util.logging.Level;
@@ -37,7 +39,10 @@
 	    private static final Datastore datastore = DatastoreOptions.getDefaultInstance().getService();
 	    private static final Logger LOG = Logger.getLogger(LoginResource.class.getName());
 	    private final Gson g = new Gson();
-	
+	    
+	    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+	    private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!])(?=\\S+$).{8,}$");
+	    
 	    public ManagementResource() {
 	
 	    }
@@ -45,41 +50,53 @@
 	    @POST
 	    @Path("/register")
 	    @Consumes(MediaType.APPLICATION_JSON)
-	    public Response registerUser(UserData data) {
+	    public Response registerUser(UserEntity userData, @QueryParam("confirmPassword") String confirmPassword) {
 	    	try {
 	        	
-	        	LOG.fine("Attempt to register User: " + data.username);
-	            if(!data.isDataValid()) {
-	                return Response.status(Status.FORBIDDEN).entity("Missing required fields.").build();
-	            }
-	            if (!data.isEmailValid()) {
-	            	LOG.warning("Invalid email: " + data.getEmail());
+	        	LOG.fine("Attempt to register User: " + userData.getUsername());
+	        	if (userData.getEmail() == null || !EMAIL_PATTERN.matcher(userData.getEmail()).matches()) {
+	        		LOG.warning("Invalid email: " + userData.getEmail());
 	            	return Response.status(Status.BAD_REQUEST).entity("Your email is considered invalid").build();
-	            }
-	            if (!data.isPasswordValid()) {
-	            	LOG.warning("Invalid password: " + data.getPassword());
+	        	}
+	            if (userData.getPassword() == null || !PASSWORD_PATTERN.matcher(userData.getPassword()).matches()) {
+	            	LOG.warning("Invalid password: " + userData.getPassword());
 	            	return Response.status(Status.BAD_REQUEST).entity("Your password is considered invalid").build();
 	            }
+	            if(!userData.getPassword().equals(confirmPassword)) 
+	            	return Response.status(Status.BAD_REQUEST).entity("Your passwords arent the same").build();
+	            if(!userData.isDataValid()) {
+	                return Response.status(Status.FORBIDDEN).entity("Missing required fields.").build();
+	            }
 	            
-	            Key userKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(data.username);
-	            Entity user = datastore.get(userKey);
+	            Key userKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(userData.getUsername());
+	            Entity newUser = datastore.get(userKey);
 
-	            if (user != null) {
+	            if (newUser != null) {
 	                return Response.status(Status.FORBIDDEN).entity("User arleady exists.").build();
 	            }
 	            
-	            data.role="enduser";
-	            data.state="DESATIVADA";
-	            Entity newUser = Entity.newBuilder(userKey)
-	            		.set("password", DigestUtils.sha1Hex(data.password))
-	            		.set("username", data.username)
-	            		.set("email", data.email)
-	            		.set("fullName", data.fullName)
-	            		.set("phoneNumber", data.phoneNumber)
-	            		.set("privacy", data.privacy)
-	            		.set("role", data.role)
-	            		.set("state", data.state).build();
-	            datastore.put(newUser);
+	            Query<Entity> emailQuery = Query.newEntityQueryBuilder()
+	                    .setKind("User")
+	                    .setFilter(PropertyFilter.eq("email", userData.getEmail()))
+	                    .build();
+	                
+	            if (datastore.run(emailQuery).hasNext()) {
+                    return Response.status(Status.BAD_REQUEST)
+                        .entity("{\"error\": \"Email já registado\"}").build();
+                }
+	            
+	            userData.setRole("enduser");
+	            userData.setState("DESATIVADA");
+	            Entity user = Entity.newBuilder(userKey)
+	            		.set("password", DigestUtils.sha1Hex(userData.getPassword()))
+	            		.set("username", userData.getUsername())
+	            		.set("email", userData.getEmail())
+	            		.set("fullName", userData.getFullName())
+	            		.set("phoneNumber", userData.getPhoneNumber())
+	            		.set("privacy", userData.getPrivacy())
+	            		.set("role", userData.getRole())
+	            		.set("state", userData.getState()).build();
+	            datastore.put(user);
 	            
 	            LOG.info("User has been registred successfully");
 	            return Response.ok().entity("User registred").build();
@@ -462,7 +479,7 @@
 	    	return token != null && currentTime < token.getLong("validTo");
 	    }
 	    
-	    //@PostConstruct
+	    /*@PostConstruct
 	    private void initRootUser() {
 	    	Transaction txn = datastore.newTransaction();
 	    	
@@ -505,8 +522,9 @@
 	    	} finally {
 	    		if(txn.isActive()) txn.rollback();
 	    	}
+	    }*/
 	        
-	    }
+	    
 	    
 	    
 	    private boolean hasAttributesUpdatePermission(Entity requesterUser, Entity targetUser, UserData newData) {

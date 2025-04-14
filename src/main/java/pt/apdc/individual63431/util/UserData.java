@@ -6,21 +6,21 @@ import com.google.cloud.datastore.Key;
 
 public class UserData {
 
-    public String username;
-    public String email;
-    public String fullName;
-    public String password;
-    public String phoneNumber;
-    public String privacy;
+    private String username;
+    private String email;
+    private String fullName;
+    private String password;
+    private String phoneNumber;
+    private String privacy;
 
-    public String ccNumber;
-    public String role;
-    public String NIF;
-    public String company;
-    public String jobTitle;
-    public String address;
-    public String companyNIF;
-    public String state;
+    private String ccNumber;
+    private String role;
+    private String NIF;
+    private String company;
+    private String jobTitle;
+    private String address;
+    private String companyNIF;
+    private String state;
 
     public UserData() {
     }
@@ -33,26 +33,13 @@ public class UserData {
         this.privacy = entity.getString("privacy");
         this.state = entity.getString("state");
         this.role = entity.getString("role");
-    }
-
-    public UserData(String username, String email, String fullName, String password,
-                    String phoneNumber, String privacy, String ccNumber, String role,
-                    String NIF, String company, String jobTitle, String address,
-                    String companyNIF, String state) {
-        this.username = username;
-        this.email = email;
-        this.fullName = fullName;
-        this.password = password;
-        this.phoneNumber = phoneNumber;
-        this.privacy = privacy;
-        this.ccNumber = ccNumber;
-        this.role = role;
-        this.NIF = NIF;
-        this.company = company;
-        this.jobTitle = jobTitle;
-        this.address = address;
-        this.companyNIF = companyNIF;
-        this.state = state;
+        
+        this.ccNumber = entity.contains("ccNumber") ? entity.getString("ccNumber") : null;
+        this.NIF = entity.contains("NIF") ? entity.getString("NIF") : null;
+        this.company = entity.contains("company") ? entity.getString("company") : null;
+        this.jobTitle = entity.contains("jobTitle") ? entity.getString("jobTitle") : null;
+        this.address = entity.contains("address") ? entity.getString("address") : null;
+        this.companyNIF = entity.contains("companyNIF") ? entity.getString("companyNIF") : null;
     }
 
     public boolean isDataValid() {
