@@ -339,83 +339,57 @@ import java.util.logging.Level;
 	    @Path("/update-account")
 	    @Consumes(MediaType.APPLICATION_JSON)
 	    @Produces(MediaType.APPLICATION_JSON)
-	    public Response updateUserData(UserData newData, @HeaderParam("Authorization") String tokenID, @QueryParam("target") String targetUsername) {
+	    public Response updateUserData(Map<String, String> attributes, @HeaderParam("Authorization") String tokenID, @QueryParam("target") String targetUsername) {
 	    	Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(tokenID);
 	    	
 	        try {
-	        	Entity tokenEntity = datastore.get(tokenKey);
+	        	Entity tokenEntity = validateTokenAndRole(tokenID);
 	        	if(!isTokenValid(tokenEntity)) {
 	        		return Response.status(Status.FORBIDDEN).entity("User isn't logged").build();
 	        	}
 	        	
-	        	Key requesterKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(tokenEntity.getString("username"));
-	        	Key targetKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(targetUsername);
-	        	Transaction txn = datastore.newTransaction();
-	        	
-	        	try {
-	        		Entity requesterUser = txn.get(requesterKey);
-	        		Entity targetUser = txn.get(targetKey);
-	        		if(targetUser == null) {
-		        		return Response.status(Status.NOT_FOUND).entity("Target user doesn't exist").build();
-		        	}
-	        		
-	        		if(!hasAttributesUpdatePermission(requesterUser, targetUser, newData)) {
-	        			return Response.status(Status.FORBIDDEN)
-	                            .entity("User isn´t allowed to change this attributes.").build();
-	        		}
-	        		
-	        		Entity.Builder udpated = Entity.newBuilder(targetUser);
-	        		
-	        		if (newData.getPhoneNumber() != null) {
-	        			udpated.set("phoneNumber", newData.getPhoneNumber());
-	        		}
-
-	        		if (newData.getPrivacy() != null) {
-	        			udpated.set("privacy", newData.getPrivacy());
-	        		}
-
-	        		if (newData.getCcNumber() != null) {
-	        			udpated.set("ccNumber", newData.getCcNumber());
-	        		}
-
-	        		if (newData.getNIF() != null) {
-	        			udpated.set("NIF", newData.getNIF());
-	        		}
-
-	        		if (newData.getCompany() != null) {
-	        			udpated.set("company", newData.getCompany());
-	        		}
-
-	        		if (newData.getJobTitle() != null) {
-	        			udpated.set("jobTitle", newData.getJobTitle());
-	        		}
-
-	        		if (newData.getAddress() != null) {
-	        			udpated.set("address", newData.getAddress());
-	        		}
-
-	        		if (newData.getCompanyNIF() != null) {
-	        			udpated.set("companyNIF", newData.getCompanyNIF());
-	        		}
-
-	        		if ("admin".equalsIgnoreCase(requesterUser.getString("role"))) {
-	        		    if (newData.getRole() != null) {
-	        		    	udpated.set("role", newData.getRole());
-	        		    }
-	        		    if (newData.getState() != null) {
-	        		    	udpated.set("state", newData.getState());
-	        		    }
-	        		}
-	        		Entity updatedUser = udpated.build();
-	        		txn.update(updatedUser);
-	        		txn.commit();
-	        		
-	        		LOG.info("Attributes changed with succes");
-	        		return Response.ok().entity("User attributes updated successfully").build();
-	        	} finally {
-	        		if (txn.isActive())
-		        		txn.rollback();
+	        	Key targetKey = datastore.newKeyFactory().setKind("User").newKey(targetUsername);
+	        	Entity targetUser = datastore.get(targetKey);
+	        	if(targetUser == null) {
+	        		return Response.status(Status.NOT_FOUND).entity("Target user doesn't exist").build();
 	        	}
+	        	
+	        	String requesterRole = tokenEntity.getString("role");
+	        	String targetRole = targetUser.getString("role");
+	        	
+	        	if (requesterRole.equals("enduser")) {
+	                
+
+	                if (!targetUser.getString("username").equals(targetUsername)) {
+	                    return Response.status(Status.FORBIDDEN)
+	                        .entity("{\"error\": \"Só pode modificar a sua própria conta\"}").build();
+	                }
+	                attributes.keySet().removeAll(Arrays.asList("username", "email", "fullName", "role", "state"));
+	            } 
+	            else if (requesterRole.equals("backoffice")) {
+	                if (!Arrays.asList("enduser", "partner").contains(targetRole)) {
+	                    return Response.status(Status.FORBIDDEN)
+	                        .entity("{\"error\": \"Só pode modificar contas ENDUSER/PARTNER\"}").build();
+	                }
+	                attributes.remove("username");
+	                attributes.remove("email");
+	            }
+	        	
+	        	Entity.Builder updatedUser = Entity.newBuilder(targetUser);
+	            for (Map.Entry<String, String> entry : attributes.entrySet()) {
+	                if (!entry.getKey().equals("password")) {
+	                    updatedUser.set(entry.getKey(), entry.getValue());
+	                }
+	            }
+
+	            Transaction txn = datastore.newTransaction();
+	            try {
+	                txn.update(updatedUser.build());
+	                txn.commit();
+	                return Response.ok("{\"message\": \"Atributos atualizados com sucesso\"}").build();
+	            } finally {
+	                if (txn.isActive()) txn.rollback();
+	            }
 	        } catch (DatastoreException e) {
 	    		LOG.severe("Não conseguiu aceder a datastore");
 	    		return Response.serverError().entity("{\"error\": \"error accessing datastor\"}").build();
@@ -431,38 +405,36 @@ import java.util.logging.Level;
 	    @Produces(MediaType.APPLICATION_JSON)
 	    public Response changePassword(@HeaderParam("Authorization") String tokenID, @QueryParam("target") String targetUsername
 	    		, @QueryParam("currentPsw") String currentPsw, @QueryParam("newPsw1") String newPsw1, @QueryParam("newPsw2") String newPsw2) {
-	    	Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(tokenID);
 	    	
 	    	try {
-	        	Entity tokenEntity = datastore.get(tokenKey);
-	        	if(!isTokenValid(tokenEntity)) {
+	        	Entity tokenEntity = validateTokenAndRole(tokenID);
+	        	String username = tokenEntity.getString("username");
+	        	
+	        	Key userKey = datastore.newKeyFactory().setKind("User").newKey(username);
+	        	Entity user = datastore.get(userKey);
+	        	
+	        	if(user == null) {
 	        		return Response.status(Status.FORBIDDEN).entity("User isn't logged").build();
 	        	}
-	        	if((newPsw1!=null) && newPsw1.equals(newPsw2)) {
+	        	if((newPsw1!=null) && !newPsw1.equals(newPsw2)) {
 	        		return Response.status(Status.BAD_REQUEST).entity("Passwords dont match").build();
 	        	}
 	        	if(!isNewPasswordValid(newPsw1)) {
 	        		return Response.status(Status.BAD_REQUEST).entity("Password isn't secure enough").build();
 	        	}
 	        	
-	        	Key userKey = datastore.newKeyFactory().setKind(UserEntity.Kind).newKey(tokenEntity.getString("username"));
-	        	Transaction txn = datastore.newTransaction();
-	        	
+	        	String currentPass = user.getString("password");
+	        		
+	        	if(!currentPass.equals(DigestUtils.sha1Hex(currentPsw))) {
+        			return Response.status(Status.BAD_REQUEST).entity("Current password incorrect").build();
+        		}
+	        		
+	        	Entity updatedUser = Entity.newBuilder(user).set("password", DigestUtils.sha1Hex(newPsw1)).build();
+	        	Transaction txn = datastore.newTransaction();	
 	        	try {
-	        		Entity user = txn.get(userKey);
-	        		
-	        		String currentPass = user.getString("password");
-	        		String passwordRequest = DigestUtils.sha1Hex(currentPsw);
-	        		
-	        		if(!currentPass.equals(passwordRequest)) {
-	        			return Response.status(Status.BAD_REQUEST).entity("Current password incorrect").build();
-	        		}
-	        		
-	        		Entity updatedUser = Entity.newBuilder(user).set("password", DigestUtils.sha1Hex(newPsw1)).build();
 	        		
 	        		txn.update(updatedUser);
 	        		txn.commit();
-	        		
 	        		LOG.info("password changed with success");
 	        		return Response.ok().entity("Your password has been changed").build();
 	        	} finally {
