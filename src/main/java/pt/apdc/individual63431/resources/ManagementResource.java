@@ -1,6 +1,5 @@
 	package pt.apdc.individual63431.resources;
 	
-	import jakarta.annotation.PostConstruct;
 	import jakarta.ws.rs.Consumes;
 	import jakarta.ws.rs.GET;
 	import jakarta.ws.rs.HeaderParam;
@@ -13,7 +12,6 @@
 	import jakarta.ws.rs.core.Response;
 	import jakarta.ws.rs.core.Response.Status;
 	
-	import pt.apdc.individual63431.util.AuthToken;
 	import pt.apdc.individual63431.util.UserData;
 	import pt.apdc.individual63431.util.UserEntity;
 	
@@ -35,7 +33,7 @@
 	
 	@Path("/user-management")
 	public class ManagementResource {
-	
+		
 	    private static final Datastore datastore = DatastoreOptions.getDefaultInstance().getService();
 	    private static final Logger LOG = Logger.getLogger(LoginResource.class.getName());
 	    private final Gson g = new Gson();
@@ -48,7 +46,22 @@
 	    @Path("/test")
 	    @Produces(MediaType.TEXT_PLAIN)
 	    public String testEndpoint() {
-	        return "Endpoint de registro está funcionando! Use POST para registrar.";
+	    	return "Endpoint funcionando - Datastore status: " + 
+	    	           (datastore != null ? "Conectado" : "Não conectado");
+	    }
+	    
+	    @GET
+	    @Path("/test-datastore")
+	    public Response testDatastore() {
+	        try {
+	        	Datastore datastore = DatastoreOptions.getDefaultInstance().getService();
+	            Key key = datastore.newKeyFactory().setKind("TestKind").newKey("test-key");
+	            datastore.put(Entity.newBuilder(key).set("status", "OK").build());
+	            return Response.ok("Datastore funcionando!").build();
+	        } catch (Exception e) {
+	            LOG.severe("Erro no Datastore: " + e.getMessage());
+	            return Response.serverError().entity("Erro: " + e.getMessage()).build();
+	        }
 	    }
 	    
 	    @POST
@@ -471,7 +484,7 @@
 	    	return token != null && currentTime < token.getLong("validTo");
 	    }
 	    
-	    @PostConstruct
+	    //@PostConstruct
 	    private void initRootUser() {
 	    	Transaction txn = datastore.newTransaction();
 	    	
